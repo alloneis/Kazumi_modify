@@ -7,6 +7,7 @@ import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/utils/logger.dart';
+import 'package:kazumi/modules/search/search_result.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key, this.inputTag = ''});
@@ -33,32 +34,34 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
+    searchPageController.init(); // 必须初始化以加载引擎
     scrollController.addListener(scrollListener);
     searchPageController.loadSearchHistories();
     if (widget.inputTag != '') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final String tagString = 'tag:${Uri.decodeComponent(widget.inputTag)}';
         searchController.text = tagString;
-        searchPageController.searchBangumi(tagString, type: 'init');
+        searchPageController.search(tagString, type: 'init');
       });
     }
   }
 
   @override
   void dispose() {
-    searchPageController.bangumiList.clear();
+    searchPageController.searchResults.clear();
     scrollController.removeListener(scrollListener);
     super.dispose();
   }
 
   void scrollListener() {
     if (scrollController.position.pixels >=
-            scrollController.position.maxScrollExtent - 200 &&
+        scrollController.position.maxScrollExtent - 200 &&
         !searchPageController.isLoading &&
         searchController.text != '' &&
-        searchPageController.bangumiList.length >= 20) {
+        searchPageController.searchResults.length >= 20 &&
+        (searchPageController.currentEngine?.supportsPagination ?? false)) {
       KazumiLogger().i('SearchController: search results is loading more');
-      searchPageController.searchBangumi(searchController.text, type: 'add');
+      searchPageController.search(searchController.text, type: 'add');
     }
   }
 
@@ -115,7 +118,7 @@ class _SearchPageState extends State<SearchPage> {
                 Navigator.pop(context);
                 searchController.text = searchPageController.attachSortParams(
                     searchController.text, 'heat');
-                searchPageController.searchBangumi(searchController.text,
+                searchPageController.search(searchController.text,
                     type: 'init');
               },
             ),
@@ -125,7 +128,7 @@ class _SearchPageState extends State<SearchPage> {
                 Navigator.pop(context);
                 searchController.text = searchPageController.attachSortParams(
                     searchController.text, 'rank');
-                searchPageController.searchBangumi(searchController.text,
+                searchPageController.search(searchController.text,
                     type: 'init');
               },
             ),
@@ -135,7 +138,7 @@ class _SearchPageState extends State<SearchPage> {
                 Navigator.pop(context);
                 searchController.text = searchPageController.attachSortParams(
                     searchController.text, 'match');
-                searchPageController.searchBangumi(searchController.text,
+                searchPageController.search(searchController.text,
                     type: 'init');
               },
             ),
@@ -150,21 +153,57 @@ class _SearchPageState extends State<SearchPage> {
         length: tabs.length,
         child: Scaffold(
             body: Column(
-          children: [
-            PreferredSize(
-              preferredSize: Size.fromHeight(kToolbarHeight),
-              child: Material(
-                child: TabBar(
-                  tabs: tabs,
+              children: [
+                PreferredSize(
+                  preferredSize: Size.fromHeight(kToolbarHeight),
+                  child: Material(
+                    child: TabBar(
+                      tabs: tabs,
+                    ),
+                  ),
                 ),
+                Expanded(
+                    child: TabBarView(
+                      children: options,
+                    ))
+              ],
+            )));
+  }
+
+  /// 构建引擎选择器 (Engine Picker)
+  Widget buildEngineSelector() {
+    return Observer(builder: (context) {
+      if (searchPageController.availableEngines.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return SizedBox(
+        height: 50,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          itemCount: searchPageController.availableEngines.length,
+          itemBuilder: (context, index) {
+            final engine = searchPageController.availableEngines[index];
+            final isSelected = searchPageController.currentEngine == engine;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ChoiceChip(
+                label: Text(engine.name),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    searchPageController.setCurrentEngine(engine);
+                    if (searchController.text.isNotEmpty) {
+                      searchPageController.search(searchController.text, type: 'init');
+                    }
+                  }
+                },
               ),
-            ),
-            Expanded(
-                child: TabBarView(
-              children: options,
-            ))
-          ],
-        )));
+            );
+          },
+        ),
+      );
+    });
   }
 
   @override
@@ -174,36 +213,44 @@ class _SearchPageState extends State<SearchPage> {
         backgroundColor: Colors.transparent,
         title: const Text("搜索"),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          showModalBottomSheet(
-            isScrollControlled: true,
-            constraints: BoxConstraints(
-              maxHeight: (MediaQuery.sizeOf(context).height >=
-                      LayoutBreakpoint.compact['height']!)
-                  ? MediaQuery.of(context).size.height * 1 / 4
-                  : MediaQuery.of(context).size.height,
-              maxWidth: (MediaQuery.sizeOf(context).width >=
-                      LayoutBreakpoint.medium['width']!)
-                  ? MediaQuery.of(context).size.width * 9 / 16
-                  : MediaQuery.of(context).size.width,
-            ),
-            clipBehavior: Clip.antiAlias,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            context: context,
-            builder: (context) {
-              return showSearchOptionTabBar(
-                  options: [showSortSwitcher(), showFilterSwitcher()]);
-            },
-          );
-        },
-        icon: const Icon(Icons.sort),
-        label: const Text("搜索设置"),
+      floatingActionButton: Observer(
+          builder: (context) {
+            // 只在当前引擎支持排序和过滤时显示（即 Bangumi 引擎）
+            if (searchPageController.currentEngine?.supportsSortAndFilter != true) {
+              return const SizedBox.shrink();
+            }
+            return FloatingActionButton.extended(
+              onPressed: () async {
+                showModalBottomSheet(
+                  isScrollControlled: true,
+                  constraints: BoxConstraints(
+                    maxHeight: (MediaQuery.sizeOf(context).height >=
+                        LayoutBreakpoint.compact['height']!)
+                        ? MediaQuery.of(context).size.height * 1 / 4
+                        : MediaQuery.of(context).size.height,
+                    maxWidth: (MediaQuery.sizeOf(context).width >=
+                        LayoutBreakpoint.medium['width']!)
+                        ? MediaQuery.of(context).size.width * 9 / 16
+                        : MediaQuery.of(context).size.width,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  context: context,
+                  builder: (context) {
+                    return showSearchOptionTabBar(
+                        options: [showSortSwitcher(), showFilterSwitcher()]);
+                  },
+                );
+              },
+              icon: const Icon(Icons.sort),
+              label: const Text("搜索设置"),
+            );
+          }
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             child: FocusScope(
               descendantsAreFocusable: false,
               child: SearchAnchor.bar(
@@ -240,7 +287,7 @@ class _SearchPageState extends State<SearchPage> {
                                 title: Text(history.keyword),
                                 onTap: () {
                                   controller.text = history.keyword;
-                                  searchPageController.searchBangumi(
+                                  searchPageController.search(
                                       controller.text,
                                       type: 'init');
                                   if (searchController.isOpen) {
@@ -262,7 +309,7 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                 ],
                 onSubmitted: (value) {
-                  searchPageController.searchBangumi(value, type: 'init');
+                  searchPageController.search(value, type: 'init');
                   if (searchController.isOpen) {
                     searchController.closeView(value);
                   }
@@ -270,6 +317,7 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
           ),
+          buildEngineSelector(), // <-- Added engine selector here
           Expanded(
             child: Observer(builder: (context) {
               if (searchPageController.isTimeOut) {
@@ -281,7 +329,7 @@ class _SearchPageState extends State<SearchPage> {
                       actions: [
                         GeneralErrorButton(
                           onPressed: () {
-                            searchPageController.searchBangumi(
+                            searchPageController.search(
                                 searchController.text,
                                 type: 'init');
                           },
@@ -293,9 +341,8 @@ class _SearchPageState extends State<SearchPage> {
                 );
               }
 
-
               if (searchPageController.isLoading &&
-                  searchPageController.bangumiList.isEmpty) {
+                  searchPageController.searchResults.isEmpty) {
                 return Center(child: CircularProgressIndicator());
               }
               int crossCount = 3;
@@ -307,20 +354,24 @@ class _SearchPageState extends State<SearchPage> {
                   LayoutBreakpoint.medium['width']!) {
                 crossCount = 6;
               }
-              List<BangumiItem> filteredList = searchPageController.bangumiList.toList();
 
-              if (searchPageController.notShowWatchedBangumis) {
-                final watchedBangumiIds = searchPageController.loadWatchedBangumiIds();
-                filteredList = filteredList
-                    .where((item) => !watchedBangumiIds.contains(item.id))
-                    .toList();
-              }
+              List<SearchResultBase> filteredList = searchPageController.searchResults.toList();
 
-              if (searchPageController.notShowAbandonedBangumis) {
-                final abandonedBangumiIds = searchPageController.loadAbandonedBangumiIds();
-                filteredList = filteredList
-                    .where((item) => !abandonedBangumiIds.contains(item.id))
-                    .toList();
+              // Only apply standard Bangumi filters if it's the Bangumi engine to avoid casting errors on Plugin IDs
+              if (searchPageController.currentEngine?.name == 'Bangumi') {
+                if (searchPageController.notShowWatchedBangumis) {
+                  final watchedBangumiIds = searchPageController.loadWatchedBangumiIds();
+                  filteredList = filteredList
+                      .where((item) => item is BangumiSearchResult && !watchedBangumiIds.contains(item.item.id))
+                      .toList();
+                }
+
+                if (searchPageController.notShowAbandonedBangumis) {
+                  final abandonedBangumiIds = searchPageController.loadAbandonedBangumiIds();
+                  filteredList = filteredList
+                      .where((item) => item is BangumiSearchResult && !abandonedBangumiIds.contains(item.item.id))
+                      .toList();
+                }
               }
 
               return GridView.builder(
@@ -331,17 +382,29 @@ class _SearchPageState extends State<SearchPage> {
                   crossAxisSpacing: StyleString.cardSpace,
                   crossAxisCount: crossCount,
                   mainAxisExtent:
-                      MediaQuery.of(context).size.width / crossCount / 0.65 +
-                          MediaQuery.textScalerOf(context).scale(32.0),
+                  MediaQuery.of(context).size.width / crossCount / 0.65 +
+                      MediaQuery.textScalerOf(context).scale(32.0),
                 ),
                 itemCount: filteredList.isNotEmpty ? filteredList.length : 10,
                 itemBuilder: (context, index) {
-                  return filteredList.isNotEmpty
-                      ? BangumiCardV(
-                          enableHero: false,
-                          bangumiItem: filteredList[index],
-                        )
-                      : Container();
+                  if (filteredList.isEmpty) return Container(); // Empty shim
+
+                  final currentItem = filteredList[index];
+                  BangumiItem displayItem;
+
+                  // Polymorphic rendering translation
+                  if (currentItem is BangumiSearchResult) {
+                    displayItem = currentItem.item;
+                  } else if (currentItem is PluginSearchResult) {
+                    displayItem = currentItem.toVirtualBangumiItem();
+                  } else {
+                    return Container(); // Safety fallback
+                  }
+
+                  return BangumiCardV(
+                    enableHero: false,
+                    bangumiItem: displayItem,
+                  );
                 },
               );
             }),

@@ -17,6 +17,7 @@ class InfoController = _InfoController with _$InfoController;
 abstract class _InfoController with Store {
   final CollectController collectController = Modular.get<CollectController>();
   late BangumiItem bangumiItem;
+  bool isVirtualBangumi = false;
 
   @observable
   bool isLoading = false;
@@ -35,6 +36,79 @@ abstract class _InfoController with Store {
 
   @observable
   var staffList = ObservableList<StaffFullItem>();
+
+  void initBangumiItem(dynamic data) {
+    if (data is BangumiItem) {
+      bangumiItem = data;
+      isVirtualBangumi = false;
+      return;
+    }
+
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      isVirtualBangumi = map['isVirtual'] == true;
+      bangumiItem = _fromMapToBangumiItem(map);
+      return;
+    }
+
+    throw ArgumentError(
+      'InfoController: unsupported bangumi payload type: ${data.runtimeType}',
+    );
+  }
+
+  BangumiItem _fromMapToBangumiItem(Map<String, dynamic> data) {
+    final dynamic rawId = data['id'];
+    int parsedId = 0;
+    if (rawId is int) {
+      parsedId = rawId;
+    } else if (rawId is String) {
+      parsedId = int.tryParse(rawId) ?? 0;
+    }
+    if (parsedId == 0) {
+      final String fallbackKey =
+          (data['src'] ?? data['url'] ?? data['name'] ?? '').toString();
+      parsedId = fallbackKey.isNotEmpty ? fallbackKey.hashCode.abs() : 0;
+    }
+
+    final String name = (data['name'] ?? '').toString();
+    final String nameCn = (data['nameCn'] ?? data['name_cn'] ?? name).toString();
+    final dynamic rawImages = data['images'];
+    Map<String, String> images = {
+      'large': '',
+      'common': '',
+      'medium': '',
+      'small': '',
+      'grid': '',
+    };
+    if (rawImages is Map) {
+      images = rawImages.map(
+        (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+      );
+      if ((images['large'] ?? '').isEmpty) {
+        images['large'] = (data['coverUrl'] ?? '').toString();
+      }
+    } else {
+      images['large'] = (data['coverUrl'] ?? '').toString();
+    }
+
+    return BangumiItem(
+      id: parsedId,
+      type: 2,
+      name: name,
+      nameCn: nameCn,
+      summary: (data['summary'] ?? 'Plugin Search Result').toString(),
+      airDate: '',
+      airWeekday: 0,
+      rank: 0,
+      images: images,
+      tags: [],
+      alias: [],
+      ratingScore: 0.0,
+      votes: 0,
+      votesCount: [],
+      info: (data['info'] ?? '').toString(),
+    );
+  }
 
   Future<void> queryBangumiInfoByID(int id, {String type = "init"}) async {
     isLoading = true;

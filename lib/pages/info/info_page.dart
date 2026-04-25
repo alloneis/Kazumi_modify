@@ -22,7 +22,9 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 
 class InfoPage extends StatefulWidget {
-  const InfoPage({super.key});
+  final dynamic bangumiItem;
+
+  const InfoPage({super.key, this.bangumiItem});
 
   @override
   State<InfoPage> createState() => _InfoPageState();
@@ -48,8 +50,6 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
   bool staffIsLoading = false;
   bool staffQueryTimeout = false;
   bool staffIsEmpty = false;
-
-  final inputBangumiIten = Modular.args.data as BangumiItem;
 
   Future<void> loadCharacters() async {
     if (charactersIsLoading) return;
@@ -141,7 +141,8 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    infoController.bangumiItem = inputBangumiIten;
+    final dynamic initialData = widget.bangumiItem ?? Modular.args.data;
+    infoController.initBangumiItem(initialData);
     infoController.characterList.clear();
     infoController.commentsList.clear();
     infoController.staffList.clear();
@@ -150,8 +151,9 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
     // Because the gap between different bangumi API response is too large, sometimes we need to query the bangumi info again
     // We need the type parameter to determine whether to attach the new data to the old data
     // We can't generally replace the old data with the new data, because the old data contains images url, update them will cause the image to reload and flicker
-    if (infoController.bangumiItem.summary == '' ||
-        infoController.bangumiItem.votesCount.isEmpty) {
+    if (!infoController.isVirtualBangumi &&
+        (infoController.bangumiItem.summary == '' ||
+            infoController.bangumiItem.votesCount.isEmpty)) {
       queryBangumiInfoByID(infoController.bangumiItem.id, type: 'attach');
     }
     sourceTabController =
@@ -255,18 +257,19 @@ class _InfoPageState extends State<InfoPage> with TickerProviderStateMixin {
                                 Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      EmbeddedNativeControlArea(
-                        child: IconButton(
-                          onPressed: () {
-                            launchUrl(
-                              Uri.parse(
-                                  'https://bangumi.tv/subject/${infoController.bangumiItem.id}'),
-                              mode: LaunchMode.externalApplication,
-                            );
-                          },
-                          icon: const Icon(Icons.open_in_browser_rounded),
+                      if (!infoController.isVirtualBangumi)
+                        EmbeddedNativeControlArea(
+                          child: IconButton(
+                            onPressed: () {
+                              launchUrl(
+                                Uri.parse(
+                                    'https://bangumi.tv/subject/${infoController.bangumiItem.id}'),
+                                mode: LaunchMode.externalApplication,
+                              );
+                            },
+                            icon: const Icon(Icons.open_in_browser_rounded),
+                          ),
                         ),
-                      ),
                       if (!showWindowButton && Utils.isDesktop())
                         CloseButton(onPressed: () => windowManager.close()),
                       SizedBox(width: 8),

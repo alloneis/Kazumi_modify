@@ -42,4 +42,24 @@ class PluginSearchResult extends SearchResultBase {
       info: '',
     );
   }
+
+  Map<String, dynamic> toInfoRouteArguments() {
+    return {
+      'id': item.src.hashCode.abs(),
+      'name': item.name,
+      'nameCn': item.name,
+      'summary': '源自插件: ${plugin.name}',
+      'coverUrl': '',
+      'images': {
+        'large': '',
+        'common': '',
+        'medium': '',
+        'small': '',
+        'grid': '',
+      },
+      'isVirtual': true,
+      'pluginName': plugin.name,
+      'src': item.src,
+    };
+  }
 }

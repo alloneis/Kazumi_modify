@@ -1,7 +1,9 @@
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:kazumi/modules/search/search_result.dart';
+import 'package:kazumi/modules/search/search_strategy.dart';
+import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:mobx/mobx.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
-import 'package:kazumi/request/bangumi.dart';
 import 'package:kazumi/utils/search_parser.dart';
 import 'package:kazumi/modules/search/search_history_module.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
@@ -15,6 +17,7 @@ class SearchPageController = _SearchPageController with _$SearchPageController;
 abstract class _SearchPageController with Store {
   final _collectRepository = Modular.get<ICollectRepository>();
   final _searchHistoryRepository = Modular.get<ISearchHistoryRepository>();
+  final _pluginsController = Modular.get<PluginsController>();
 
   @observable
   bool isLoading = false;
@@ -29,10 +32,35 @@ abstract class _SearchPageController with Store {
   late bool notShowAbandonedBangumis = _collectRepository.getSearchNotShowAbandonedBangumis();
 
   @observable
-  ObservableList<BangumiItem> bangumiList = ObservableList.of([]);
+  ObservableList<SearchResultBase> searchResults = ObservableList.of([]);
+
+  @observable
+  ObservableList<SearchStrategy> availableEngines = ObservableList.of([]);
+
+  @observable
+  SearchStrategy? currentEngine;
 
   @observable
   ObservableList<SearchHistory> searchHistories = ObservableList.of([]);
+
+  void init() {
+    availableEngines.clear();
+    availableEngines.add(BangumiSearchStrategy());
+    for (var plugin in _pluginsController.pluginList) {
+      if (plugin.searchURL.isNotEmpty) {
+        availableEngines.add(PluginSearchStrategy(plugin));
+      }
+    }
+    currentEngine = availableEngines.first;
+    loadSearchHistories();
+  }
+
+  @action
+  void setCurrentEngine(SearchStrategy engine) {
+    currentEngine = engine;
+    searchResults.clear();
+    isTimeOut = false;
+  }
 
   @action
   void loadSearchHistories() {
@@ -41,11 +69,6 @@ abstract class _SearchPageController with Store {
     searchHistories.addAll(histories);
   }
 
-  /// Avaliable sort parameters:
-  /// 1. heat
-  /// 2. match
-  /// 3. rank
-  /// 4. score
   String attachSortParams(String input, String sort) {
     SearchParser parser = SearchParser(input);
     String newInput = parser.updateSort(sort);
@@ -53,47 +76,45 @@ abstract class _SearchPageController with Store {
   }
 
   @action
-  Future<void> searchBangumi(String input, {String type = 'add'}) async {
+  Future<void> search(String input, {String type = 'add'}) async {
+    if (currentEngine == null) return;
+
     if (type != 'add') {
-      bangumiList.clear();
+      searchResults.clear();
       bool privateMode = _collectRepository.getPrivateMode();
       if (!privateMode) {
-        // 检查是否已满，删除最旧的记录
         if (_searchHistoryRepository.isHistoryFull(10)) {
           await _searchHistoryRepository.deleteOldest();
         }
-        // 删除重复的历史记录
         await _searchHistoryRepository.deleteDuplicates(input);
-        // 保存新的搜索历史
         await _searchHistoryRepository.saveHistory(input);
-        // 重新加载历史记录
         loadSearchHistories();
       }
     }
+    
     isLoading = true;
     isTimeOut = false;
-    SearchParser parser = SearchParser(input);
-    String? idString = parser.parseId();
-    String? tag = parser.parseTag();
-    String? sort = parser.parseSort();
-    String keywords = parser.parseKeywords();
-    if (idString != null) {
-      final id = int.tryParse(idString);
-      if (id != null) {
-        final BangumiItem? item = await BangumiHTTP.getBangumiInfoByID(id);
-        if (item != null) {
-          bangumiList.add(item);
-        }
-        return;
-      }
-    }
-    var result = await BangumiHTTP.bangumiSearch(keywords,
+
+    try {
+      SearchParser parser = SearchParser(input);
+      String? tag = parser.parseTag();
+      String? sort = parser.parseSort();
+      String keywords = parser.parseKeywords();
+
+      final results = await currentEngine!.search(
+        keywords,
+        offset: searchResults.length,
+        sort: sort ?? 'heat',
         tags: [if (tag != null) tag],
-        offset: bangumiList.length,
-        sort: sort ?? 'heat');
-    bangumiList.addAll(result);
-    isLoading = false;
-    isTimeOut = bangumiList.isEmpty;
+      );
+      
+      searchResults.addAll(results);
+    } catch (_) {
+      // Handle error
+    } finally {
+      isLoading = false;
+      isTimeOut = searchResults.isEmpty;
+    }
   }
 
   @action

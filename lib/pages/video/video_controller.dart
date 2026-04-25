@@ -196,11 +196,21 @@ abstract class _VideoPageController with Store {
     String chapterName = roadList[currentRoad].identifier[episode - 1];
     KazumiLogger().i('VideoPageController: changed to $chapterName');
     String urlItem = roadList[currentRoad].data[episode - 1];
-    if (urlItem.contains(currentPlugin.baseUrl) ||
-        urlItem.contains(currentPlugin.baseUrl.replaceAll('https', 'http'))) {
+
+    // Fix: Check if it's already an absolute URL before prepending the base URL
+    if (urlItem.toLowerCase().startsWith('http://') ||
+        urlItem.toLowerCase().startsWith('https://')) {
+      // It's already a full URL, leave it as is
       urlItem = urlItem;
     } else {
-      urlItem = currentPlugin.baseUrl + urlItem;
+      // It's a relative path, so we prepend the baseUrl
+      if (currentPlugin.baseUrl.endsWith('/') && urlItem.startsWith('/')) {
+        urlItem = currentPlugin.baseUrl + urlItem.substring(1);
+      } else if (!currentPlugin.baseUrl.endsWith('/') && !urlItem.startsWith('/')) {
+        urlItem = currentPlugin.baseUrl + '/' + urlItem;
+      } else {
+        urlItem = currentPlugin.baseUrl + urlItem;
+      }
     }
 
     await _resolveWithProvider(urlItem, offset);
@@ -247,7 +257,8 @@ abstract class _VideoPageController with Store {
       referer: '',
       currentRoad: currentRoad,
       coverUrl: bangumiItem.images['large'],
-      bangumiName: bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
+      bangumiName:
+          bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
     );
 
     final playerController = Modular.get<PlayerController>();
@@ -263,8 +274,46 @@ abstract class _VideoPageController with Store {
   }
 
   /// 使用 VideoSourceProvider 解析视频源
+
   Future<void> _resolveWithProvider(String url, int offset) async {
     _videoSourceProvider?.cancel();
+
+    // 关键修复: 如果 URL 已经是直接的视频地址（.m3u8 或 .mp4），跳过 WebView 解析，直接播放
+    if (url.toLowerCase().contains('.m3u8') || url.toLowerCase().contains('.mp4')) {
+      loading = false;
+      KazumiLogger().i('VideoPageController: Direct video URL detected, bypassing WebView: $url');
+
+      final bool forceAdBlocker =
+            setting.get(SettingBoxKey.forceAdBlocker, defaultValue: false);
+
+      final params = PlaybackInitParams(
+        videoUrl: url, // 直接使用该 URL
+        offset: offset,
+        isLocalPlayback: false,
+        bangumiId: bangumiItem.id,
+        pluginName: currentPlugin.name,
+        episode: currentEpisode,
+        httpHeaders: {
+          'user-agent': currentPlugin.userAgent.isEmpty
+              ? Utils.getRandomUA()
+              : currentPlugin.userAgent,
+          if (currentPlugin.referer.isNotEmpty)
+            'referer': currentPlugin.referer,
+        },
+        adBlockerEnabled: forceAdBlocker || currentPlugin.adBlocker,
+        episodeTitle: roadList[currentRoad].identifier[currentEpisode - 1],
+        referer: currentPlugin.referer,
+        currentRoad: currentRoad,
+        coverUrl: bangumiItem.images['large'],
+        bangumiName: bangumiItem.nameCn.isNotEmpty
+            ? bangumiItem.nameCn
+            : bangumiItem.name,
+      );
+
+      final playerController = Modular.get<PlayerController>();
+      await playerController.init(params);
+      return;
+    }
 
     loading = true;
     _videoSourceProvider ??= WebViewVideoSourceProvider();
@@ -288,7 +337,7 @@ abstract class _VideoPageController with Store {
           .i('VideoPageController: resolved video URL: ${source.url}');
 
       final bool forceAdBlocker =
-          setting.get(SettingBoxKey.forceAdBlocker, defaultValue: false);
+      setting.get(SettingBoxKey.forceAdBlocker, defaultValue: false);
 
       final params = PlaybackInitParams(
         videoUrl: source.url,
@@ -309,7 +358,9 @@ abstract class _VideoPageController with Store {
         referer: currentPlugin.referer,
         currentRoad: currentRoad,
         coverUrl: bangumiItem.images['large'],
-        bangumiName: bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
+        bangumiName: bangumiItem.nameCn.isNotEmpty
+            ? bangumiItem.nameCn
+            : bangumiItem.name,
       );
 
       final playerController = Modular.get<PlayerController>();
@@ -325,7 +376,6 @@ abstract class _VideoPageController with Store {
       errorMessage = '视频解析失败：${e.toString()}';
     }
   }
-
   /// 取消当前视频源解析并销毁 Provider（页面退出时调用）
   void cancelVideoSourceResolution() {
     _logSubscription?.cancel();
@@ -376,8 +426,15 @@ abstract class _VideoPageController with Store {
     }
     KazumiLogger()
         .i('VideoPageController: road list length ${roadList.length}');
+    if (roadList.isEmpty) {
+      KazumiLogger().w(
+        'VideoPageController: no chapter roads resolved for $url using plugin $pluginName',
+      );
+      throw Exception('No chapter roads resolved');
+    }
     KazumiLogger().i(
-        'VideoPageController: first road episode count ${roadList[0].data.length}');
+      'VideoPageController: first road episode count ${roadList[0].data.length}',
+    );
   }
 
   void toggleSortOrder() {

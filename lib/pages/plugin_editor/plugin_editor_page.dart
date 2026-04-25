@@ -8,9 +8,7 @@ import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 
 class PluginEditorPage extends StatefulWidget {
-  const PluginEditorPage({
-    super.key,
-  });
+  const PluginEditorPage({super.key});
 
   @override
   State<PluginEditorPage> createState() => _PluginEditorPageState();
@@ -30,6 +28,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
   final TextEditingController searchResultController = TextEditingController();
   final TextEditingController chapterRoadsController = TextEditingController();
   final TextEditingController chapterResultController = TextEditingController();
+  final TextEditingController chapterNameController = TextEditingController();
+  final TextEditingController chapterUrlController = TextEditingController();
   final TextEditingController refererController = TextEditingController();
   bool muliSources = true;
   bool useWebview = true;
@@ -67,6 +67,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
     searchResultController.text = plugin.searchResult;
     chapterRoadsController.text = plugin.chapterRoads;
     chapterResultController.text = plugin.chapterResult;
+    chapterNameController.text = plugin.chapterName;
+    chapterUrlController.text = plugin.chapterUrl;
     refererController.text = plugin.referer;
     muliSources = plugin.muliSources;
     useWebview = plugin.useWebview;
@@ -87,9 +89,7 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
     final fontFamily = Theme.of(context).textTheme.bodyMedium?.fontFamily;
 
     return Scaffold(
-      appBar: const SysAppBar(
-        title: Text('规则编辑器'),
-      ),
+      appBar: const SysAppBar(title: Text('规则编辑器')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Center(
@@ -100,103 +100,188 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                      labelText: 'Name', border: OutlineInputBorder()),
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: versionController,
                   decoration: const InputDecoration(
-                      labelText: 'Version', border: OutlineInputBorder()),
+                    labelText: 'Version',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: baseURLController,
                   decoration: const InputDecoration(
-                      labelText: 'BaseURL', border: OutlineInputBorder()),
+                    labelText: 'BaseURL',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchURLController,
                   decoration: const InputDecoration(
-                      labelText: 'SearchURL', border: OutlineInputBorder()),
+                    labelText: 'SearchURL',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchListController,
                   decoration: const InputDecoration(
-                      labelText: 'SearchList', border: OutlineInputBorder()),
+                    labelText: 'SearchList',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchNameController,
                   decoration: const InputDecoration(
-                      labelText: 'SearchName', border: OutlineInputBorder()),
+                    labelText: 'SearchName',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: searchResultController,
                   decoration: const InputDecoration(
-                      labelText: 'SearchResult', border: OutlineInputBorder()),
+                    labelText: 'SearchResult',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: chapterRoadsController,
                   decoration: const InputDecoration(
-                      labelText: 'ChapterRoads', border: OutlineInputBorder()),
+                    labelText: 'ChapterRoads',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: chapterResultController,
                   decoration: const InputDecoration(
-                      labelText: 'ChapterResult', border: OutlineInputBorder()),
+                    labelText: 'ChapterResult (Legacy)',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 ExpansionTile(
                   title: const Text('高级选项'),
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: chapterNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'ChapterName',
+                              helperText:
+                                  'Advanced XPath for chapter names, e.g. //div[@name=\"lineData\"]/text()',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: chapterUrlController,
+                            decoration: const InputDecoration(
+                              labelText: 'ChapterUrl',
+                              helperText:
+                                  'Advanced XPath for chapter urls, e.g. //div[@name=\"lineData\"]/@udata',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
                     SettingsSection(
-                      title: Text('行为设置', style: TextStyle(fontFamily: fontFamily)),
+                      title: Text(
+                        '行为设置',
+                        style: TextStyle(fontFamily: fontFamily),
+                      ),
                       tiles: [
                         SettingsTile.switchTile(
-                          title: Text('简易解析', style: TextStyle(fontFamily: fontFamily)),
-                          description: Text('使用简易解析器而不是现代解析器', style: TextStyle(fontFamily: fontFamily)),
+                          title: Text(
+                            '简易解析',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
+                          description: Text(
+                            '使用简易解析器而不是现代解析器',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
                           initialValue: useLegacyParser,
-                          onToggle: (v) => setState(() => useLegacyParser = v ?? !useLegacyParser),
+                          onToggle: (v) => setState(
+                            () => useLegacyParser = v ?? !useLegacyParser,
+                          ),
                         ),
                         SettingsTile.switchTile(
-                          title: Text('POST', style: TextStyle(fontFamily: fontFamily)),
-                          description: Text('使用 POST 而不是 GET 进行检索', style: TextStyle(fontFamily: fontFamily)),
+                          title: Text(
+                            'POST',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
+                          description: Text(
+                            '使用 POST 而不是 GET 进行检索',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
                           initialValue: usePost,
-                          onToggle: (v) => setState(() => usePost = v ?? !usePost),
+                          onToggle: (v) =>
+                              setState(() => usePost = v ?? !usePost),
                         ),
                         SettingsTile.switchTile(
-                          title: Text('内置播放器', style: TextStyle(fontFamily: fontFamily)),
-                          description: Text('使用内置播放器播放视频', style: TextStyle(fontFamily: fontFamily)),
+                          title: Text(
+                            '内置播放器',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
+                          description: Text(
+                            '使用内置播放器播放视频',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
                           initialValue: useNativePlayer,
-                          onToggle: (v) => setState(() => useNativePlayer = v ?? !useNativePlayer),
+                          onToggle: (v) => setState(
+                            () => useNativePlayer = v ?? !useNativePlayer,
+                          ),
                         ),
                         SettingsTile.switchTile(
-                          title: Text('广告过滤', style: TextStyle(fontFamily: fontFamily)),
-                          description: Text('启用 HLS 广告过滤', style: TextStyle(fontFamily: fontFamily)),
+                          title: Text(
+                            '广告过滤',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
+                          description: Text(
+                            '启用 HLS 广告过滤',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
                           initialValue: adBlocker,
-                          onToggle: (v) => setState(() => adBlocker = v ?? !adBlocker),
+                          onToggle: (v) =>
+                              setState(() => adBlocker = v ?? !adBlocker),
                         ),
                       ],
                     ),
                     SettingsSection(
-                      title: Text('网络设置', style: TextStyle(fontFamily: fontFamily)),
+                      title: Text(
+                        '网络设置',
+                        style: TextStyle(fontFamily: fontFamily),
+                      ),
                       tiles: [
                         CustomSettingsTile(
                           child: (info) => _buildTextFieldTile(
-                            context, info,
+                            context,
+                            info,
                             controller: userAgentController,
                             label: 'UserAgent',
                           ),
                         ),
                         CustomSettingsTile(
                           child: (info) => _buildTextFieldTile(
-                            context, info,
+                            context,
+                            info,
                             controller: refererController,
                             label: 'Referer',
                           ),
@@ -204,13 +289,24 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                       ],
                     ),
                     SettingsSection(
-                      title: Text('反反爬虫配置', style: TextStyle(fontFamily: fontFamily)),
+                      title: Text(
+                        '反反爬虫配置',
+                        style: TextStyle(fontFamily: fontFamily),
+                      ),
                       tiles: [
                         SettingsTile.switchTile(
-                          title: Text('启用反反爬虫', style: TextStyle(fontFamily: fontFamily)),
-                          description: Text('检索失败时显示验证码验证按钮而非重试', style: TextStyle(fontFamily: fontFamily)),
+                          title: Text(
+                            '启用反反爬虫',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
+                          description: Text(
+                            '检索失败时显示验证码验证按钮而非重试',
+                            style: TextStyle(fontFamily: fontFamily),
+                          ),
                           initialValue: antiCrawlerEnabled,
-                          onToggle: (v) => setState(() => antiCrawlerEnabled = v ?? !antiCrawlerEnabled),
+                          onToggle: (v) => setState(
+                            () => antiCrawlerEnabled = v ?? !antiCrawlerEnabled,
+                          ),
                         ),
                         if (antiCrawlerEnabled) ...[
                           SettingsTile.navigation(
@@ -221,7 +317,10 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                                 captchaTypeMenuController.open();
                               }
                             },
-                            title: Text('验证类型', style: TextStyle(fontFamily: fontFamily)),
+                            title: Text(
+                              '验证类型',
+                              style: TextStyle(fontFamily: fontFamily),
+                            ),
                             description: Text(
                               captchaType == CaptchaType.imageCaptcha
                                   ? '图片验证码（展示验证码图片，用户手动输入）'
@@ -239,17 +338,22 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                                 for (final entry in _captchaTypeMap.entries)
                                   MenuItemButton(
                                     requestFocusOnHover: false,
-                                    onPressed: () => setState(() => captchaType = entry.key),
+                                    onPressed: () =>
+                                        setState(() => captchaType = entry.key),
                                     child: Container(
                                       height: 48,
-                                      constraints: const BoxConstraints(minWidth: 160),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 160,
+                                      ),
                                       child: Align(
                                         alignment: Alignment.centerLeft,
                                         child: Text(
                                           entry.value,
                                           style: TextStyle(
                                             color: entry.key == captchaType
-                                                ? Theme.of(context).colorScheme.primary
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary
                                                 : null,
                                             fontFamily: fontFamily,
                                           ),
@@ -263,7 +367,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                           if (captchaType == CaptchaType.imageCaptcha) ...[
                             CustomSettingsTile(
                               child: (info) => _buildTextFieldTile(
-                                context, info,
+                                context,
+                                info,
                                 controller: captchaImageController,
                                 label: 'CaptchaImage (XPath)',
                                 hint: '//img[@class="captcha"]',
@@ -272,7 +377,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                             ),
                             CustomSettingsTile(
                               child: (info) => _buildTextFieldTile(
-                                context, info,
+                                context,
+                                info,
                                 controller: captchaInputController,
                                 label: 'CaptchaInput (XPath)',
                                 hint: '//input[@name="captcha"]',
@@ -282,7 +388,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
                           ],
                           CustomSettingsTile(
                             child: (info) => _buildTextFieldTile(
-                              context, info,
+                              context,
+                              info,
                               controller: captchaButtonController,
                               label: captchaType == CaptchaType.imageCaptcha
                                   ? 'CaptchaButton (XPath)'
@@ -311,33 +418,39 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
             child: const Icon(Icons.bug_report),
             onPressed: () async {
               Plugin pluginText = Plugin(
-                  api: apiController.text,
-                  type: typeController.text,
-                  name: nameController.text,
-                  version: versionController.text,
-                  muliSources: muliSources,
-                  useWebview: useWebview,
-                  useNativePlayer: useNativePlayer,
-                  usePost: usePost,
-                  useLegacyParser: useLegacyParser,
-                  adBlocker: adBlocker,
-                  userAgent: userAgentController.text,
-                  baseUrl: baseURLController.text,
-                  searchURL: searchURLController.text,
-                  searchList: searchListController.text,
-                  searchName: searchNameController.text,
-                  searchResult: searchResultController.text,
-                  chapterRoads: chapterRoadsController.text,
-                  chapterResult: chapterResultController.text,
-                  referer: refererController.text,
-                  antiCrawlerConfig: AntiCrawlerConfig(
-                    enabled: antiCrawlerEnabled,
-                    captchaType: captchaType,
-                    captchaImage: captchaImageController.text,
-                    captchaInput: captchaInputController.text,
-                    captchaButton: captchaButtonController.text,
-                  ));
-              Modular.to.pushNamed('/settings/plugin/test', arguments: pluginText);
+                api: apiController.text,
+                type: typeController.text,
+                name: nameController.text,
+                version: versionController.text,
+                muliSources: muliSources,
+                useWebview: useWebview,
+                useNativePlayer: useNativePlayer,
+                usePost: usePost,
+                useLegacyParser: useLegacyParser,
+                adBlocker: adBlocker,
+                userAgent: userAgentController.text,
+                baseUrl: baseURLController.text,
+                searchURL: searchURLController.text,
+                searchList: searchListController.text,
+                searchName: searchNameController.text,
+                searchResult: searchResultController.text,
+                chapterRoads: chapterRoadsController.text,
+                chapterResult: chapterResultController.text,
+                chapterName: chapterNameController.text,
+                chapterUrl: chapterUrlController.text,
+                referer: refererController.text,
+                antiCrawlerConfig: AntiCrawlerConfig(
+                  enabled: antiCrawlerEnabled,
+                  captchaType: captchaType,
+                  captchaImage: captchaImageController.text,
+                  captchaInput: captchaInputController.text,
+                  captchaButton: captchaButtonController.text,
+                ),
+              );
+              Modular.to.pushNamed(
+                '/settings/plugin/test',
+                arguments: pluginText,
+              );
             },
           ),
           SizedBox(width: 15),
@@ -357,6 +470,8 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
               plugin.searchResult = searchResultController.text;
               plugin.chapterRoads = chapterRoadsController.text;
               plugin.chapterResult = chapterResultController.text;
+              plugin.chapterName = chapterNameController.text;
+              plugin.chapterUrl = chapterUrlController.text;
               plugin.muliSources = muliSources;
               plugin.useWebview = useWebview;
               plugin.useNativePlayer = useNativePlayer;

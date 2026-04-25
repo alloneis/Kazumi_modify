@@ -31,7 +31,8 @@ class VideoWebviewAndroidImpl
           geolocationEnabled: false,
         ),
         onWebViewCreated: (controller) {
-          print('[WebView] Created');
+          // Replaced print with KazumiLogger
+          KazumiLogger().i('[WebView] Created');
           webviewController = controller;
           initEventController.add(true);
         },
@@ -41,6 +42,7 @@ class VideoWebviewAndroidImpl
         onLoadStop: (controller, url) {
           logEventController.add('loading completed: $url');
         },
+        // Replaced onReceivedSslError with onReceivedServerTrustAuthRequest
       ),
     );
     await headlessWebView?.run();

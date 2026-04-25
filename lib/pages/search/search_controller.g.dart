@@ -87,19 +87,51 @@ mixin _$SearchPageController on _SearchPageController, Store {
     });
   }
 
-  late final _$bangumiListAtom =
-      Atom(name: '_SearchPageController.bangumiList', context: context);
+  late final _$searchResultsAtom =
+      Atom(name: '_SearchPageController.searchResults', context: context);
 
   @override
-  ObservableList<BangumiItem> get bangumiList {
-    _$bangumiListAtom.reportRead();
-    return super.bangumiList;
+  ObservableList<SearchResultBase> get searchResults {
+    _$searchResultsAtom.reportRead();
+    return super.searchResults;
   }
 
   @override
-  set bangumiList(ObservableList<BangumiItem> value) {
-    _$bangumiListAtom.reportWrite(value, super.bangumiList, () {
-      super.bangumiList = value;
+  set searchResults(ObservableList<SearchResultBase> value) {
+    _$searchResultsAtom.reportWrite(value, super.searchResults, () {
+      super.searchResults = value;
+    });
+  }
+
+  late final _$availableEnginesAtom =
+      Atom(name: '_SearchPageController.availableEngines', context: context);
+
+  @override
+  ObservableList<SearchStrategy> get availableEngines {
+    _$availableEnginesAtom.reportRead();
+    return super.availableEngines;
+  }
+
+  @override
+  set availableEngines(ObservableList<SearchStrategy> value) {
+    _$availableEnginesAtom.reportWrite(value, super.availableEngines, () {
+      super.availableEngines = value;
+    });
+  }
+
+  late final _$currentEngineAtom =
+      Atom(name: '_SearchPageController.currentEngine', context: context);
+
+  @override
+  SearchStrategy? get currentEngine {
+    _$currentEngineAtom.reportRead();
+    return super.currentEngine;
+  }
+
+  @override
+  set currentEngine(SearchStrategy? value) {
+    _$currentEngineAtom.reportWrite(value, super.currentEngine, () {
+      super.currentEngine = value;
     });
   }
 
@@ -119,13 +151,12 @@ mixin _$SearchPageController on _SearchPageController, Store {
     });
   }
 
-  late final _$searchBangumiAsyncAction =
-      AsyncAction('_SearchPageController.searchBangumi', context: context);
+  late final _$searchAsyncAction =
+      AsyncAction('_SearchPageController.search', context: context);
 
   @override
-  Future<void> searchBangumi(String input, {String type = 'add'}) {
-    return _$searchBangumiAsyncAction
-        .run(() => super.searchBangumi(input, type: type));
+  Future<void> search(String input, {String type = 'add'}) {
+    return _$searchAsyncAction.run(() => super.search(input, type: type));
   }
 
   late final _$deleteSearchHistoryAsyncAction = AsyncAction(
@@ -182,13 +213,26 @@ mixin _$SearchPageController on _SearchPageController, Store {
   }
 
   @override
+  void setCurrentEngine(SearchStrategy engine) {
+    final _$actionInfo = _$_SearchPageControllerActionController.startAction(
+        name: '_SearchPageController.setCurrentEngine');
+    try {
+      return super.setCurrentEngine(engine);
+    } finally {
+      _$_SearchPageControllerActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 isLoading: ${isLoading},
 isTimeOut: ${isTimeOut},
 notShowWatchedBangumis: ${notShowWatchedBangumis},
 notShowAbandonedBangumis: ${notShowAbandonedBangumis},
-bangumiList: ${bangumiList},
+searchResults: ${searchResults},
+availableEngines: ${availableEngines},
+currentEngine: ${currentEngine},
 searchHistories: ${searchHistories}
     ''';
   }

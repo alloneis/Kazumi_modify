@@ -62,7 +62,7 @@ class _PluginTestPageState extends State<PluginTestPage> {
 
   bool get _hasChapters => chapters?.isNotEmpty ?? false;
 
-  bool get _needChapterParse => plugin.chapterRoads.isNotEmpty;
+  bool get _needChapterParse => plugin.hasBuiltInChapterResolver;
 
   CancelToken? _testSearchRequestCancelToken;
   CancelToken? _testRoadsCancelToken;
@@ -112,7 +112,8 @@ class _PluginTestPageState extends State<PluginTestPage> {
           .node as Element);
       return _itemHtmlMap[index] = node.outerHtml;
     } catch (e) {
-      KazumiLogger().e('PluginTest: failed to parse HTML item ${index + 1}', error: e);
+      KazumiLogger()
+          .e('PluginTest: failed to parse HTML item ${index + 1}', error: e);
       return "解析失败：$e";
     }
   }
