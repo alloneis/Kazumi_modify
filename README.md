@@ -190,5 +190,9 @@ A: 本项目编译需要良好的网络环境, 除了由 Google 托管的 Flutte
 感谢 [hive](https://github.com/isar/hive) 本项目持久化储存能力来自 hive。
 
 
+this is custom modify for mulite search base on rule .
+
+further will implemnent any script like miru . or just modify miru code i think miru is more powerful. this project is easier. 
+
 
 
